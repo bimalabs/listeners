@@ -7,10 +7,14 @@ import (
 	"github.com/olivere/elastic/v7"
 )
 
-type PaginationFilterElasticsearch struct {
+type paginationFilter struct {
 }
 
-func (p *PaginationFilterElasticsearch) Handle(event interface{}) interface{} {
+func NewPaginationFilter() events.Listener {
+	return &paginationFilter{}
+}
+
+func (p *paginationFilter) Handle(event interface{}) interface{} {
 	e, ok := event.(*events.ElasticsearchPagination)
 	if !ok {
 		return event
@@ -31,10 +35,10 @@ func (p *PaginationFilterElasticsearch) Handle(event interface{}) interface{} {
 	return e
 }
 
-func (p *PaginationFilterElasticsearch) Listen() string {
+func (p *paginationFilter) Listen() string {
 	return events.PaginationEvent.String()
 }
 
-func (p *PaginationFilterElasticsearch) Priority() int {
+func (p *paginationFilter) Priority() int {
 	return 255
 }

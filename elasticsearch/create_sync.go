@@ -13,14 +13,21 @@ import (
 	"github.com/olivere/elastic/v7"
 )
 
-type CreateSyncElasticsearch struct {
-	Service       string
-	Elasticsearch *elastic.Client
+type createSync struct {
+	service       string
+	elasticsearch *elastic.Client
 }
 
-func (c *CreateSyncElasticsearch) Handle(event interface{}) interface{} {
+func NewCreateSync(service string, client *elastic.Client) events.Listener {
+	return &createSync{
+		service:       service,
+		elasticsearch: client,
+	}
+}
+
+func (c *createSync) Handle(event interface{}) interface{} {
 	e := event.(*events.Model)
-	if c.Elasticsearch == nil {
+	if c.elasticsearch == nil {
 		return e
 	}
 
@@ -28,7 +35,7 @@ func (c *CreateSyncElasticsearch) Handle(event interface{}) interface{} {
 
 	var index strings.Builder
 
-	index.WriteString(c.Service)
+	index.WriteString(c.service)
 	index.WriteString("_")
 	index.WriteString(m.TableName())
 
@@ -36,7 +43,7 @@ func (c *CreateSyncElasticsearch) Handle(event interface{}) interface{} {
 	go func(r chan<- error) {
 		data, _ := json.Marshal(e.Data)
 
-		_, err := c.Elasticsearch.Index().Index(index.String()).BodyJson(string(data)).Do(context.Background())
+		_, err := c.elasticsearch.Index().Index(index.String()).BodyJson(string(data)).Do(context.Background())
 
 		r <- err
 	}(result)
@@ -51,10 +58,10 @@ func (c *CreateSyncElasticsearch) Handle(event interface{}) interface{} {
 	return e
 }
 
-func (u *CreateSyncElasticsearch) Listen() string {
+func (u *createSync) Listen() string {
 	return events.AfterCreateEvent.String()
 }
 
-func (c *CreateSyncElasticsearch) Priority() int {
+func (c *createSync) Priority() int {
 	return bima.HighestPriority + 1
 }

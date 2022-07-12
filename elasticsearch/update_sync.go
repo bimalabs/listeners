@@ -13,14 +13,21 @@ import (
 	"github.com/olivere/elastic/v7"
 )
 
-type UpdateSyncElasticsearch struct {
-	Service       string
-	Elasticsearch *elastic.Client
+type updateSync struct {
+	service       string
+	elasticsearch *elastic.Client
 }
 
-func (u *UpdateSyncElasticsearch) Handle(event interface{}) interface{} {
+func NewUpdateSync(service string, client *elastic.Client) events.Listener {
+	return &updateSync{
+		service:       service,
+		elasticsearch: client,
+	}
+}
+
+func (u *updateSync) Handle(event interface{}) interface{} {
 	e := event.(*events.Model)
-	if u.Elasticsearch == nil {
+	if u.elasticsearch == nil {
 		return e
 	}
 
@@ -28,7 +35,7 @@ func (u *UpdateSyncElasticsearch) Handle(event interface{}) interface{} {
 
 	var index strings.Builder
 
-	index.WriteString(u.Service)
+	index.WriteString(u.service)
 	index.WriteString("_")
 	index.WriteString(m.TableName())
 
@@ -37,16 +44,16 @@ func (u *UpdateSyncElasticsearch) Handle(event interface{}) interface{} {
 		query := elastic.NewMatchQuery("Id", e.Id)
 
 		ctx := context.Background()
-		result, _ := u.Elasticsearch.Search().Index(index.String()).Query(query).Do(ctx)
+		result, _ := u.elasticsearch.Search().Index(index.String()).Query(query).Do(ctx)
 		if result != nil {
 			for _, hit := range result.Hits.Hits {
-				u.Elasticsearch.Delete().Index(index.String()).Id(hit.Id).Do(ctx)
+				u.elasticsearch.Delete().Index(index.String()).Id(hit.Id).Do(ctx)
 			}
 		}
 
 		data, _ := json.Marshal(e.Data)
 
-		_, err := u.Elasticsearch.Index().Index(index.String()).BodyJson(string(data)).Do(ctx)
+		_, err := u.elasticsearch.Index().Index(index.String()).BodyJson(string(data)).Do(ctx)
 		r <- err
 	}(result)
 
@@ -60,10 +67,10 @@ func (u *UpdateSyncElasticsearch) Handle(event interface{}) interface{} {
 	return e
 }
 
-func (u *UpdateSyncElasticsearch) Listen() string {
+func (u *updateSync) Listen() string {
 	return events.AfterUpdateEvent.String()
 }
 
-func (u *UpdateSyncElasticsearch) Priority() int {
+func (u *updateSync) Priority() int {
 	return bima.HighestPriority + 1
 }

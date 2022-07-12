@@ -11,14 +11,21 @@ import (
 	"github.com/olivere/elastic/v7"
 )
 
-type DeleteSyncElasticsearch struct {
-	Service       string
-	Elasticsearch *elastic.Client
+type deleteSync struct {
+	service       string
+	elasticsearch *elastic.Client
 }
 
-func (d *DeleteSyncElasticsearch) Handle(event interface{}) interface{} {
+func NewDeleteSync(service string, client *elastic.Client) events.Listener {
+	return &deleteSync{
+		service:       service,
+		elasticsearch: client,
+	}
+}
+
+func (d *deleteSync) Handle(event interface{}) interface{} {
 	e := event.(*events.Model)
-	if d.Elasticsearch == nil {
+	if d.elasticsearch == nil {
 		return e
 	}
 
@@ -26,7 +33,7 @@ func (d *DeleteSyncElasticsearch) Handle(event interface{}) interface{} {
 
 	var index strings.Builder
 
-	index.WriteString(d.Service)
+	index.WriteString(d.service)
 	index.WriteString("_")
 	index.WriteString(m.TableName())
 
@@ -35,10 +42,10 @@ func (d *DeleteSyncElasticsearch) Handle(event interface{}) interface{} {
 		query := elastic.NewMatchQuery("Id", e.Id)
 
 		ctx := context.Background()
-		result, _ := d.Elasticsearch.Search().Index(index.String()).Query(query).Do(ctx)
+		result, _ := d.elasticsearch.Search().Index(index.String()).Query(query).Do(ctx)
 		if result != nil {
 			for _, hit := range result.Hits.Hits {
-				d.Elasticsearch.Delete().Index(index.String()).Id(hit.Id).Do(ctx)
+				d.elasticsearch.Delete().Index(index.String()).Id(hit.Id).Do(ctx)
 			}
 		}
 
@@ -55,10 +62,10 @@ func (d *DeleteSyncElasticsearch) Handle(event interface{}) interface{} {
 	return e
 }
 
-func (d *DeleteSyncElasticsearch) Listen() string {
+func (d *deleteSync) Listen() string {
 	return events.AfterDeleteEvent.String()
 }
 
-func (d *DeleteSyncElasticsearch) Priority() int {
+func (d *deleteSync) Priority() int {
 	return bima.HighestPriority + 1
 }
